@@ -1,103 +1,95 @@
 from flask import Flask, request, jsonify
-from flask_cors import CORS
-import json
 import os
-from generator import *
-import glob
-import random
-
+import json
+from generator import converter, generate_quiz
+import atexit
+import shutil
+from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-
-# @app.route('/process_text', methods=['POST'])
-# def process_text():
-#     data = request.json
-#     text = data['text']
-#     response = {'message': 'Text processed', 'data': text}
-#     return jsonify(response)
-
-ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg'}
-app.config['UPLOAD_FOLDER'] = './'
+UPLOAD_FOLDER = "./uploads"
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)  # Ensure the folder exists
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER  # Add to app config
+ALLOWED_EXTENSIONS = {'txt', 'pdf', 'jpg', 'png'}  # Allowed file types
 
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
-@app.route('/sample')
-def sample():
-    return {"message": ""}
+summaries_cache = {}  # Dictionary to temporarily store summaries by session
 
 @app.route('/process_summary', methods=['POST'])
 def process_summary():
+    if "files" not in request.files:
+        print("No files part found")
+        return jsonify({"message": "No files part"}), 400
 
-    # if "file" not in request.files:
-    #     return {"message": "No file part"}, 400
-    # pdf_file = request.files['file']
-    # # pdf_files.save(f"./{pdf_files.filename}")
-    # # pdftojson(pdf_files)
-    # # txt_files = request.args['input']
-    # for i in pdf_files:
-    #     i.save(os.path.join(".", i.filename))
-    #     pdftojson()
-    # with open('./outsum.json', 'r') as file:
-    #     data1 = json.load(file, strict=False)
-    # # with open('./Backend/outquiz.json', 'r') as file:
-    # #     data2 = json.load(file)
-    # # return {"message": "SUCCESS YAYY WE MADE IT HERE"}
-    # return jsonify(**data1)
+    files = request.files.getlist("files")  # Get all files from the request
+    topic = request.form.get("topic", "General")
+    session_id = request.form.get("session_id", "default")  # Optional session ID for tracking
+    print(f"Received {len(files)} file(s), Topic: {topic}")
 
-    print("here")
-    cleaner()
-    # files = request.files.getlist('file')
-    if "file" not in request.files:
-        return {"message": "No file part"}, 400
-    file = request.files['file']
-    topic = request.form['topic']
-    print(topic)
-    combined_results = {}
-    # for file in files:
-    if file and allowed_file(file.filename):
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
-        file.save(file_path)
-        converter(file, topic)
-        outputpath = './' + file.filename[:-4] + '_summary.json'
-        with open(outputpath, 'r') as out:
-            data = json.load(out)
-            combined_results.update(data)
-            print("here")
-    # with open('final.json', 'w') as json_file:
-    #     json.dump(combined_results, json_file, indent=4)
-    # with open('./final.json', 'r') as file:
-    #     json_content = json.load(file)
-    # return {"Summary": "SUCCESS YAYY WE MADE IT HERE"}
-    new_json_content = {'Summary': combined_results}
-    with open('final.json', 'w') as json_file:
-        json.dump(combined_results, json_file, indent=4)
-    return jsonify(new_json_content)
+    summaries = []  # Store summaries for all files
 
-@app.route('/process_quiz', methods=['GET'])
-def process_quiz():
-    # amt = request.form['amt']
-    amt = 5
-    quizzes = glob.glob('./*_quiz.json')
-    combined_questions = []
-    for file in quizzes:
-        with open(file, 'r') as file:
-            quiz = json.load(file)
-            print(quiz)
-            combined_questions.extend(quiz)
-    random.shuffle(combined_questions) 
-    if amt < len(combined_questions):
-        combined_questions = combined_questions[:amt]
-    # new_quiz = {f'question{i+1}': q for i, q in enumerate(combined_questions)}
-    new_json_content = {'Questions': combined_questions}
-    print("here")
-    with open('./new_quiz.json', 'w') as file:
-        json.dump(new_json_content, file, indent=4) 
-    return jsonify(new_json_content)
+    for file in files:
+        if file and allowed_file(file.filename):
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
+            file.save(file_path)
+            print(f"File saved to: {file_path}")
+
+            try:
+                # Pass the saved file path to the converter
+                converter(file_path, topic)
+                output_path = f"{file_path[:-4]}_summary.txt"
+
+                # Read the plain text summary
+                if not os.path.exists(output_path):
+                    raise FileNotFoundError(f"Summary file not created for {file.filename}")
+
+                with open(output_path, "r") as f:
+                    summary = f.read()
+                summaries.append(summary)
+            except Exception as e:
+                print(f"Error processing file {file.filename}: {e}")
+                summaries.append(f"Error processing {file.filename}: {e}")
+        else:
+            print(f"Invalid file: {file.filename}")
+            summaries.append(f"Invalid file: {file.filename}")
+
+    # Cache the combined summary for quiz generation
+    combined_summary = "\n\n".join(summaries)
+    summaries_cache[session_id] = combined_summary
+
+    return jsonify({"Summaries": summaries}), 200
+
+@app.route('/generate_quiz', methods=['POST'])
+def quiz_generation():
+    data = request.get_json()
+    session_id = data.get("session_id", "default")  # Retrieve the session ID
+    num_questions = data.get("numQuestions", 5)
+
+    # Retrieve the summary from the cache
+    summary = summaries_cache.get(session_id)
+    if not summary:
+        return jsonify({"message": "No summary available. Please generate a summary first."}), 400
+
+    try:
+        # Call the generate_quiz function
+        quiz = generate_quiz(summary, num_questions)
+        return jsonify({"Quiz": quiz}), 200
+    except Exception as e:
+        print(f"Error in quiz_generation: {e}")
+        return jsonify({"message": "Error generating quiz."}), 500
+    
+def cleanup_uploads():
+    print("Cleaning up uploads folder...")
+    if os.path.exists(UPLOAD_FOLDER):
+        shutil.rmtree(UPLOAD_FOLDER)  # Deletes the entire folder and its contents
+        os.makedirs(UPLOAD_FOLDER, exist_ok=True)  # Recreate the folder for future use
+    print("Uploads folder cleaned.")
+atexit.register(cleanup_uploads)
 
 if __name__ == '__main__':
     app.run(debug=True)
-    
