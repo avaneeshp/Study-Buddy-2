@@ -39,6 +39,44 @@
   padding: 0.5rem 0;
 }
 
+.quiz-question {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  background-color: #f9f9f9;
+}
+
+.question {
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+}
+
+.answers {
+  margin-left: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.correct-answer {
+  font-style: italic;
+  color: #1a8cd8;
+}
+
+.show-answer-button {
+  background-color: #1a8cd8;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+}
+
+.show-answer-button:hover {
+  background-color: #1466a3;
+}
+
 .quiz-section {
   margin-top: 2rem;
   flex:auto;
@@ -137,6 +175,7 @@
 }
 
 .api-output {
+  white-space: pre-wrap;
   background: #FFF; /* Or another color based on your theme */
   border-radius: 10px; /* Rounded corners */
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); /* Shadow for depth */

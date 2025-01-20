@@ -23,7 +23,6 @@ function Component() {
           {/* Navbar Links */}
           <div className="flex list-none items-center px-10">
             <Navbar.Link href="/" className="nav-link text-xl text-white px-4 py-2 relative hover:text-white">Home</Navbar.Link>
-            <Navbar.Link href="/about" className="nav-link text-xl text-white px-4 py-2 relative">About Us</Navbar.Link>
           </div>
           
           {/* Action Button */}
