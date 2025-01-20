@@ -68,16 +68,14 @@ function Figure() {
       console.log("Raw quiz response:", data); // Debugging
 
       if (data.Quiz && typeof data.Quiz === "string") {
-        // Clean the response
         const cleanedResponse = data.Quiz.replace(/```json|```/g, "").trim();
 
-        // Parse the JSON
         const parsedQuiz = JSON.parse(cleanedResponse);
 
         console.log("Parsed quiz response:", parsedQuiz); // Debugging
 
         setQuizQuestions(parsedQuiz);
-        setQuizPopulated(true); // Show the quiz output section
+        setQuizPopulated(true);
       } else {
         alert("Failed to generate quiz questions.");
         setQuizQuestions([]);
