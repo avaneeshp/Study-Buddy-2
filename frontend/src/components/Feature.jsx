@@ -193,7 +193,7 @@ function Figure() {
                   </div>
                   <div className="answers">
                     {questionData.answers.map((answer, idx) => {
-                      const cleanAnswer = answer.replace(/^[A-D]\.\s*/, ""); // Remove redundant prefix
+                      const cleanAnswer = answer.replace(/^[A-D][.)]\s*/, "");
 
                       return (
                         <div key={idx} className="answer">
